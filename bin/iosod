@@ -93,7 +93,7 @@ export Action_PurgePackage=("purge" "[-h host_address] package_name" "h:" 1 1 ma
 "        Purge <package_name> from device at <host_address>. If <host_address> is
         omitted, the environment variable iOSOpenDevDevice is used.")
 
-export Action_DumpSDKHeaders=("dump" "[-i] [-z] framework_type output_directory" "iz" 2 2 dumpSDKHeaders false \
+export Action_DumpSDKHeaders=("dump" "[-i] [-z] [-s sdk] framework_type output_directory" "izs:" 2 2 dumpSDKHeaders false \
 "        Generate header files of the specified iOS SDK <framework_type> of its
         classes, categories and protocols in <output_directory>. If <z> is
         omitted, class-dump-z is used. If <z> is used, class-dump is used. If
@@ -103,7 +103,9 @@ export Action_DumpSDKHeaders=("dump" "[-i] [-z] framework_type output_directory"
         framework-style imports since the header files being dumped will be
         copied to SDK directories. If <framework_type> is springboard then
         import statements are not converted since the header files are placed
-        in an include directory.
+        in an include directory. If <sdk> is provided, the headers will be
+        generated using that SDK. This should be in the format 
+        <sdk_name>[<sdk_version>], ie. iphoneos5.1 or iphonesimulator.
 
         Framework type options:
             public, private, springboard
@@ -1027,12 +1029,13 @@ function processDirToCopyHeadersToSDK() # args: pathToTrimOffFromTargetHeaderFil
 
 # === dump === #
 
-function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption]
+function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption] [, sdkVersion]
 {
 	local dumpWhat="$1"
 	local outputDirectory="$2"
 	local useZOption="$3"
 	local useIOption="$4"
+	local sdkVersion="$5"
 	local iosSdkPath
 	local iosSdkVersion
 	local sourceBasePath
@@ -1041,7 +1044,10 @@ function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, us
 	local dontUseHeadersDir=false
 	local dumpingWhat
 	
-	iosSdkPath=`getSdkProperty iphoneos Path`
+	if [ -z "$sdkVersion" ]; then
+		sdkVersion="iphoneos"
+	fi
+	iosSdkPath=`getSdkProperty $sdkVersion Path`
 	requireDir "$iosSdkPath"
 	
 	iosSdkVersion=`getSdkProperty iphoneos SDKVersion`
@@ -1766,7 +1772,7 @@ case "${activeActionArg[$ActionProperty_ShortArg]}" in
 		"${activeActionArg[$ActionProperty_Function]}" "purge" "$@" "$Opt_h"
 	;;
 	${Action_DumpSDKHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_z" "$Opt_i"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_z" "$Opt_i" "$Opt_s"
 	;;
 	${Action_CopyHeadersToSDK[$ActionProperty_ShortArg]})
 		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t"
