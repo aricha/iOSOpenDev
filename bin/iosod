@@ -104,11 +104,13 @@ export Action_DumpSDKHeaders=("dump" "[-i] [-z] [-s sdk] framework_type output_d
         copied to SDK directories. If <framework_type> is springboard then
         import statements are not converted since the header files are placed
         in an include directory. If <sdk> is provided, the headers will be
-        generated using that SDK. This should be in the format 
-        <sdk_name>[<sdk_version>], ie. iphoneos5.1 or iphonesimulator.
+        generated using that SDK. The default is the latest installed iOS SDK.
 
         Framework type options:
             public, private, springboard
+
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator
 
         Outputted structure for public and private options:
             <output_directory>/Foo.framework/Headers/*.h
@@ -116,16 +118,21 @@ export Action_DumpSDKHeaders=("dump" "[-i] [-z] [-s sdk] framework_type output_d
         Outputted structure for springboard option:
             <output_directory>/*.h")
 
-export Action_CopyHeadersToSDK=("cp2sdk" "[-t header_tag] framework_type source_directory" "t:" 2 2 copyHeadersToSDK true \
+export Action_CopyHeadersToSDK=("cp2sdk" "[-t header_tag] [-s sdk] framework_type source_directory" "t:s:" 2 2 copyHeadersToSDK true \
 "        Copy header files from <source_directory> to the location of the
         specified iOS SDK <framework_type>, tagging each header file with
         <header_tag>, if provided. Tagging is performed for distinguishability
         between original and other dumped header files. If <framework_type> is
         public and <header_tag> is empty, a header tag of \"_Dumped\" is used
-        so that original SDK header files are not overwritten.
+        so that original SDK header files are not overwritten. If <sdk> is
+        provided, the headers will be copied to that SDK. The default is the
+        latest installed iOS SDK.
 
         Framework type options:
             public, private, springboard
+
+        Valid SDK format:
+        	<sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator
 
         Valid source structures for public and private options:
             <source_directory>/Foo.framework/Headers/*.h
@@ -133,7 +140,7 @@ export Action_CopyHeadersToSDK=("cp2sdk" "[-t header_tag] framework_type source_
 
         Valid source structure for springboard option:
             <source_directory>/*.h
-            
+        
         Location of public framework type:
             \$SDKROOT/System/Library/Frameworks
 
@@ -143,26 +150,36 @@ export Action_CopyHeadersToSDK=("cp2sdk" "[-t header_tag] framework_type source_
         Location of springboard framework type:
             $iOSOpenDevPath/include/SpringBoard")
 
-export Action_DumpAndCopyHeaders=("dump2sdk" "[-i] [-z] [-t header_tag] framework_type" "it:z" 1 1 dumpAndCopyHeaders true \
+export Action_DumpAndCopyHeaders=("dump2sdk" "[-i] [-z] [-t header_tag] [-s sdk] framework_type" "it:zs:" 1 1 dumpAndCopyHeaders true \
 "        Generate and copy header files of the specified iOS SDK
         <framework_type>, tagging each header file with <header_tag>, if
         provided. If <z> is omitted, class-dump-z is used. If <z> is used,
         class-dump is used. If <i> is provided, import statements are not
-        converted from \"header.h\" to <framework_name/header.h>.
+        converted from \"header.h\" to <framework_name/header.h>. If <sdk> 
+        is provided, the headers will be generated using, and then copied to,
+        that SDK. The default is the latest installed iOS SDK.
         
         Using this would be as if the dump argument was used then followed by
         the cp2sdk argument. Header files are outputted to a temporary
         directory which is removed.
 
         Framework type options:
-            public, private, springboard")
+            public, private, springboard
 
-export Action_DownloadRBHeaders=("rb" "output_directory" "" 1 1 getRuntimeBrowserHeaderFiles false \
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
+
+export Action_DownloadRBHeaders=("rb" "output_directory" "s:" 1 1 getRuntimeBrowserHeaderFiles false \
 "        Download RuntimeBrowser produced header files to <output_directory>.
         If the version of the latest iOS SDK on this computer is not available
-        for download then this action will fail.")
+        for download then this action will fail. If <sdk> is provided, the 
+        headers will be copied to that SDK. The default is the latest 
+        installed iOS SDK.
+
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
             
-export Action_DownloadAndCopyRBHeaders=("rb2sdk" "[-t header_tag] framework_type" "" 1 1 downloadAndCopyRuntimeBrowserHeaderFilesToSDK true \
+export Action_DownloadAndCopyRBHeaders=("rb2sdk" "[-t header_tag] [-s sdk] framework_type" "s:" 1 1 downloadAndCopyRuntimeBrowserHeaderFilesToSDK true \
 "        Download and copy RuntimeBrowser produced header files of the
         specified iOS SDK <framework_type>, tagging each header file with
         <header_tag>, if provided. If <framework_type> is public and
@@ -170,17 +187,26 @@ export Action_DownloadAndCopyRBHeaders=("rb2sdk" "[-t header_tag] framework_type
         original SDK header files are not overwritten. Header files are
         downloaded to a temporary directory which is removed. If the version of
         the latest iOS SDK on this computer is not avilable for download then
-        this action will fail.
+        this action will fail. If <sdk> is provided, the headers will be
+        copied to that SDK. The default is the latest installed iOS SDK.
 
         Framework type options:
-            public, private")
+            public, private
+
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
           
-export Action_RemoveCopiedHeaders=("rmheaders" "framework_type header_tag" "" 2 2 removeCopiedHeaders true \
+export Action_RemoveCopiedHeaders=("rmheaders" "framework_type header_tag" "s:" 2 2 removeCopiedHeaders true \
 "        Remove previously copied header files of the specified iOS SDK
-        <framework_type> which are tagged with <header_tag>.
+        <framework_type> which are tagged with <header_tag>. If <sdk> is
+        provided, the headers will be copied to that SDK. The default is
+        the latest installed iOS SDK.
 
         Framework type options:
-            public or private")
+            public or private
+
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
 
 export Action_AddSshKeyToDevice=("sshkey" "[-h host_address] [-r]" "h:r" 0 0 addSshKeyToDevice false \
 "        Add the local user's public SSH authentication key as an authorized key
@@ -196,11 +222,16 @@ export Action_AddSshKeyToDevice=("sshkey" "[-h host_address] [-r]" "h:r" 0 0 add
         by the account that will be used for developing in Xcode. Public keys
         are stored in the root account's ~/.ssh/authorized_keys file.")
 
-export Action_DumpAllHeaders=("dumpall2sdk" "[-i] [-z]" "iz" 0 0 dumpAllHeaders true \
+export Action_DumpAllHeaders=("dumpall2sdk" "[-i] [-z] [-s sdk]" "izs:" 0 0 dumpAllHeaders true \
 "        Generate and copy header files of the iOS SDK framework types public,
         private and springboard. If <z> is omitted, class-dump-z is used. If
         <z> is used, class-dump is used. If <i> is provided, import statements
-        are not converted from \"header.h\" to <framework_name/header.h>.")
+        are not converted from \"header.h\" to <framework_name/header.h>.
+        If <sdk> is provided, the headers will be generated using that SDK. 
+        The default is the latest installed iOS SDK.
+
+        Valid SDK format:
+            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
 
 export Action_RunCmdOnDevice=("run" "[-h host_address] command ..." "h:" 0 2048 runCmdOnDevice false \
 "        Run <command> on device at <host_address>. If <host_address> is
@@ -827,10 +858,11 @@ function managePackageOnDevice() # args: manageAction, packageFileOrName, hostAd
 
 # === rb2sdk (action) === #
 
-function downloadAndCopyRuntimeBrowserHeaderFilesToSDK() # args: getWhat [, headerFileTag]
+function downloadAndCopyRuntimeBrowserHeaderFilesToSDK() # args: getWhat [, headerFileTag] [, sdk]
 {
 	local getWhat="$1"
 	local headerFileTag="$2"
+	local sdk="$3"
 	local tmpDir
 	local untardDir
 	
@@ -841,38 +873,44 @@ function downloadAndCopyRuntimeBrowserHeaderFilesToSDK() # args: getWhat [, head
 
 	echo "Downloading RuntimeBrowser produced iOS SDK header files..."
 
-	untardDir=`downloadRuntimeBrowserHeaderFiles "$tmpDir"`
+	untardDir=`downloadRuntimeBrowserHeaderFiles "$tmpDir" "$sdk"`
 
 	echo "Copying RuntimeBrowser produced iOS SDK $getWhat framework header files..."
 
 	if [[ $getWhat == "public" ]]; then
-		copyHeadersToSDK "public" "$untardDir/Frameworks" "$headerFileTag"
+		copyHeadersToSDK "public" "$untardDir/Frameworks" "$headerFileTag" "$sdk"
 	elif [[ $getWhat == "private" ]]; then
-		copyHeadersToSDK "private" "$untardDir/PrivateFrameworks" "$headerFileTag"
+		copyHeadersToSDK "private" "$untardDir/PrivateFrameworks" "$headerFileTag" "$sdk"
 	fi
 }
 
 # === rb (action) === #
 
-function getRuntimeBrowserHeaderFiles() # args: outputDirectory
+function getRuntimeBrowserHeaderFiles() # args: outputDirectory [, sdk]
 {
 	local outputDirectory="$1"
+	local sdk="$2"
 
 	echo "Downloading RuntimeBrowser produced iOS SDK header files..."
 
-	downloadRuntimeBrowserHeaderFiles "$outputDirectory"
+	downloadRuntimeBrowserHeaderFiles "$outputDirectory" "$sdk"
 }
 
-function downloadRuntimeBrowserHeaderFiles() # args: outputDirectory
+function downloadRuntimeBrowserHeaderFiles() # args: outputDirectory [, sdk]
 {
 	$setcmd
 
 	local outputDirectory="$1"
+	local sdk="$2"
 	local sdkVersion
 	local tarName
 	local untardDir
+
+	if [[ -z "$sdk" ]]; then
+		sdk="iphoneos"
+	fi
 	
-	sdkVersion=`getSdkProperty iphoneos SDKVersion`
+	sdkVersion=`getSdkProperty $sdk SDKVersion`
 
 	tarName="RuntimeHeaders-$sdkVersion"
 
@@ -892,10 +930,11 @@ function downloadRuntimeBrowserHeaderFiles() # args: outputDirectory
 
 # === rmheaders (action) === #
 
-function removeCopiedHeaders() # args: removeWhat, headerFileTag
+function removeCopiedHeaders() # args: removeWhat, headerFileTag [, sdk]
 {
 	local removeWhat="$1"
 	local headerFileTag="$2"
+	local sdk="$3"
 	local fileNamePattern="*${headerFileTag}.h"
 	local iosSdkPath
 	local basePath
@@ -905,7 +944,11 @@ function removeCopiedHeaders() # args: removeWhat, headerFileTag
 	[[ "$removeWhat" != "public" || "$headerFileTag" != "" ]] || \
 		panic 1 "Invalid option: cannot target public frameworks with an empty header tag"
 
-	iosSdkPath=`getSdkProperty iphoneos Path`
+	if [[ -z "$sdk" ]]; then
+		sdk="iphoneos"
+	fi
+
+	iosSdkPath=`getSdkProperty $sdk Path`
 	requireDir "$iosSdkPath"
 
 	if [[ $removeWhat == "private" ]]; then
@@ -937,11 +980,12 @@ function removeCopiedHeaders() # args: removeWhat, headerFileTag
 
 # === cp2sdk (action) === #
 
-function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag]
+function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag] [, sdk]
 {
 	local copyWhat="$1"
 	local sourceDirectory="$2"
 	local headerFileTag="$3"
+	local sdk="$4"
 	local iosSdkPath	
 	local targetBasePath
 	local dontUseHeadersDir=false
@@ -949,7 +993,11 @@ function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag]
 	
 	requireDir "$sourceDirectory"
 	
-	iosSdkPath=`getSdkProperty iphoneos Path`
+	if [[ -z "$sdk" ]]; then
+		sdk="iphoneos"
+	fi
+
+	iosSdkPath=`getSdkProperty $sdk Path`
 	requireDir "$iosSdkPath"
 	
 	if [[ $copyWhat == "private" ]]; then
@@ -1029,13 +1077,13 @@ function processDirToCopyHeadersToSDK() # args: pathToTrimOffFromTargetHeaderFil
 
 # === dump === #
 
-function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption] [, sdkVersion]
+function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption] [, sdk]
 {
 	local dumpWhat="$1"
 	local outputDirectory="$2"
 	local useZOption="$3"
 	local useIOption="$4"
-	local sdkVersion="$5"
+	local sdk="$5"
 	local iosSdkPath
 	local iosSdkVersion
 	local sourceBasePath
@@ -1044,13 +1092,13 @@ function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, us
 	local dontUseHeadersDir=false
 	local dumpingWhat
 	
-	if [ -z "$sdkVersion" ]; then
-		sdkVersion="iphoneos"
+	if [[ -z "$sdk" ]]; then
+		sdk="iphoneos"
 	fi
-	iosSdkPath=`getSdkProperty $sdkVersion Path`
+	iosSdkPath=`getSdkProperty $sdk Path`
 	requireDir "$iosSdkPath"
 	
-	iosSdkVersion=`getSdkProperty iphoneos SDKVersion`
+	iosSdkVersion=`getSdkProperty $sdk SDKVersion`
 	
 	if [[ $dumpWhat == "private" ]]; then
 		sourceBasePath="$iosSdkPath/System/Library/PrivateFrameworks"
@@ -1241,19 +1289,20 @@ function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat]
 
 # === dump2sdk (action) === #
 
-function dumpAndCopyHeaders() # args: copyWhat [, headerFileTag] [, useZOption] [, useIOption]
+function dumpAndCopyHeaders() # args: copyWhat [, headerFileTag] [, useZOption] [, useIOption] [, sdk]
 {
 	local copyWhat="$1"
 	local headerFileTag="$2"
 	local useZOption="$3"
 	local useIOption="$4"
+	local sdk="$5"
 	local tmpDir
 	
 	tmpDir=`getTempDir`
 	
-	dumpSDKHeaders "$copyWhat" "$tmpDir" "$useZOption" "$useIOption"
+	dumpSDKHeaders "$copyWhat" "$tmpDir" "$useZOption" "$useIOption" "$sdk"
 
-	copyHeadersToSDK "$copyWhat" "$tmpDir" "$headerFileTag"
+	copyHeadersToSDK "$copyWhat" "$tmpDir" "$headerFileTag" "$sdk"
 }
 
 # === sshkey (action) === #
@@ -1334,14 +1383,15 @@ $USER to the root account on device $hostAddress."
 
 # === dumpall2sdk (Action) === #
 
-function dumpAllHeaders() # args: [useZOption] [, useIOption]
+function dumpAllHeaders() # args: [useZOption] [, useIOption] [, sdk]
 {
 	local useZOption="$1"
 	local useIOption="$2"
+	local sdk="$3"
 	
-	dumpAndCopyHeaders "public" "" "$useZOption" "$useIOption"
-	dumpAndCopyHeaders "private" "" "$useZOption" "$useIOption"
-	dumpAndCopyHeaders "springboard" "" "$useZOption" "$useIOption"
+	dumpAndCopyHeaders "public" "" "$useZOption" "$useIOption" "$sdk"
+	dumpAndCopyHeaders "private" "" "$useZOption" "$useIOption" "$sdk"
+	dumpAndCopyHeaders "springboard" "" "$useZOption" "$useIOption" "$sdk"
 }
 
 # === run (Action) === #
@@ -1775,25 +1825,25 @@ case "${activeActionArg[$ActionProperty_ShortArg]}" in
 		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_z" "$Opt_i" "$Opt_s"
 	;;
 	${Action_CopyHeadersToSDK[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t" "$Opt_s"
 	;;
 	${Action_DumpAndCopyHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t" "$Opt_z" "$Opt_i"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t" "$Opt_z" "$Opt_i" "$Opt_s"
 	;;
 	${Action_DownloadRBHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_s"
 	;;
 	${Action_DownloadAndCopyRBHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_t" "$Opt_s"
 	;;
 	${Action_RemoveCopiedHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$@"
+		"${activeActionArg[$ActionProperty_Function]}" "$@" "$Opt_s"
 	;;
 	${Action_AddSshKeyToDevice[$ActionProperty_ShortArg]})
 		"${activeActionArg[$ActionProperty_Function]}" "$Opt_h" "$Opt_r"
 	;;
 	${Action_DumpAllHeaders[$ActionProperty_ShortArg]})
-		"${activeActionArg[$ActionProperty_Function]}" "$Opt_z" "$Opt_i"
+		"${activeActionArg[$ActionProperty_Function]}" "$Opt_z" "$Opt_i" "$Opt_s"
 	;;
 	${Action_RunCmdOnDevice[$ActionProperty_ShortArg]})
 		"${activeActionArg[$ActionProperty_Function]}" "$Opt_h" "$@"
