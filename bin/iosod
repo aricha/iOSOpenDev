@@ -978,6 +978,18 @@ function removeCopiedHeaders() # args: removeWhat, headerFileTag [, sdk]
 	fi
 }
 
+function getHeaderTagForType() # args: copyType
+{
+	local copyType="$1"
+	local headerFileTag
+
+	if [[ $copyWhat == "public" ]]; then
+		headerFileTag="_Dumped"
+	fi
+
+	echo "$headerFileTag"
+}
+
 # === cp2sdk (action) === #
 
 function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag] [, sdk]
@@ -999,6 +1011,9 @@ function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag] 
 
 	iosSdkPath=`getSdkProperty $sdk Path`
 	requireDir "$iosSdkPath"
+
+	[[ $headerFileTag != "" ]] || \
+		headerFileTag=`getHeaderTagForType "$copyWhat"`
 	
 	if [[ $copyWhat == "private" ]]; then
 		targetBasePath="$iosSdkPath/System/Library/PrivateFrameworks"
@@ -1007,8 +1022,6 @@ function copyHeadersToSDK() # args: copyWhat, sourceDirectory [, headerFileTag] 
 	elif [[ $copyWhat == "public" ]]; then
 		targetBasePath="$iosSdkPath/System/Library/Frameworks"
 		copyingToWhere="iOS SDK $copyWhat frameworks"
-		[[ $headerFileTag != "" ]] || \
-			headerFileTag="_Dumped"
 			
 	elif [[ $copyWhat == "springboard" ]]; then
 		targetBasePath="$iOSOpenDevPath/include/SpringBoard"
@@ -1077,13 +1090,14 @@ function processDirToCopyHeadersToSDK() # args: pathToTrimOffFromTargetHeaderFil
 
 # === dump === #
 
-function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption] [, sdk]
+function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, useIOption] [, sdk] [, headerFileTag]
 {
 	local dumpWhat="$1"
 	local outputDirectory="$2"
 	local useZOption="$3"
 	local useIOption="$4"
 	local sdk="$5"
+	local headerFileTag="$6"
 	local iosSdkPath
 	local iosSdkVersion
 	local sourceBasePath
@@ -1130,8 +1144,11 @@ function dumpSDKHeaders() # args: dumpWhat, outputDirectory [, useZOption] [, us
 	processDirToDumpSDKHeaders "$sourceBasePath" "$sourceBasePath" "$outputDirectory" $dontUseHeadersDir
 
 	if [[ $useIOption != "true" ]]; then
+		[[ $headerFileTag != "" ]] || \
+			headerFileTag=`getHeaderTagForType "$dumpWhat"`
+
 		echo "Fixing import statements..."
-		cleanUpDumpedHeaderFiles "$outputDirectory" "$dumpWhat"
+		cleanUpDumpedHeaderFiles "$outputDirectory" "$dumpWhat" "$headerFileTag"
 	fi
 }
 
@@ -1170,10 +1187,11 @@ function processDirToDumpSDKHeaders() # args: pathToTrimOffFromTargetHeaderFileP
 	done
 }
 
-function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat]
+function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat] [, headerTag]
 {
 	local baseDir="$1"
 	local forWhat="$2"
+	local headerTag="$3"
 	local removals=("NSObject\\.h" "NSString\\.h")
 	local r
 	local files
@@ -1184,6 +1202,7 @@ function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat]
 	local imports
 	local i
 	local fileName
+	local fixedFileName
 	local origFileContents
 	local newFileContents
 	local fName
@@ -1222,7 +1241,8 @@ function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat]
 
 		if [[ $forWhat != "springboard" ]]; then
 			# change "headerfile.h" imports to <framework/headerfile.h> imports (if headerfile.h exists in framework's directory)
-			
+			# if using a header tag, append that too
+
 			set +e
 			imports=(`perl -ne 'print if /#import[\s]+"[^\/]+"/' "$f"`)
 			set -e
@@ -1231,7 +1251,9 @@ function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat]
 				if [[ "$i" == \"*\" ]]; then
 					fileName=${i//\"/}
 					if [[ -f "$fileDir/$fileName" ]]; then
-						newFileContents=`echo "$newFileContents" | sed "s/^#import *\"$fileName\"/#import \\<$fwName\\/$fileName\\>/g"` || \
+						fixedFileName="${fileName%.h}${headerTag}.h"
+
+						newFileContents=`echo "$newFileContents" | sed "s/^#import *\"$fileName\"/#import \\<$fwName\\/$fixedFileName\\>/g"` || \
 							panic $? "Failed to echo into sed"
 					fi
 				fi
@@ -1300,7 +1322,7 @@ function dumpAndCopyHeaders() # args: copyWhat [, headerFileTag] [, useZOption] 
 	
 	tmpDir=`getTempDir`
 	
-	dumpSDKHeaders "$copyWhat" "$tmpDir" "$useZOption" "$useIOption" "$sdk"
+	dumpSDKHeaders "$copyWhat" "$tmpDir" "$useZOption" "$useIOption" "$sdk" "$headerFileTag"
 
 	copyHeadersToSDK "$copyWhat" "$tmpDir" "$headerFileTag" "$sdk"
 }
