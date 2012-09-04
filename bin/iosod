@@ -1268,7 +1268,7 @@ function cleanUpDumpedHeaderFiles() # args: baseDir [, forWhat] [, headerTag]
 			
 			if [[ $forWhat != "springboard" ]]; then
 				# change <XXUnknownSuperclass.h> to <framework/XXUnknownSuperclass.h>
-				newFileContents=`echo "$newFileContents" | sed "s/^#import *\\<XXUnknownSuperclass\\.h\\>\( *\\/\\/ *Unknown library\)/#import \\<${fwName}\\/XXUnknownSuperclass\\.h\\>/g"` || \
+				newFileContents=`echo "$newFileContents" | sed "s/^#import *\\<XXUnknownSuperclass\\.h\\>\( *\\/\\/ *Unknown library\)/#import \\<${fwName}\\/XXUnknownSuperclass${headerFileTag}\\.h\\>/g"` || \
 					panic $? "Failed to echo into sed"
 					
 			else
