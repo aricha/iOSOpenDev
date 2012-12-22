@@ -25,12 +25,12 @@ export setCmd="set -eo pipefail"
 $setCmd
 
 # path #
-export PATH=/opt/iOSOpenDev/bin:/opt/theos/bin:/opt/local/bin:/opt/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
+export PATH=/opt/iOSOpenDev/bin:/opt/theos/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH
 
 # script #
 
 export scriptName="${0##*/}"
-export scriptVer="1.3.1"
+export scriptVer="1.3.2"
 export originalArguments=("$@")
 export activeActionArg
 
@@ -1603,9 +1603,9 @@ function xcodeBuildPhase() # no args
 	# process environment variables #
 	
 	local builtExecutable="$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-	local packageDirectory="$PROJECT_DIR/$PROJECT_NAME/Package"
+	local packageDirectory="$PROJECT_DIR/$TARGET_NAME/Package"
 	local packageInstallPath="$packageDirectory$INSTALL_PATH"
-	local packageVersionPListPath="$PROJECT_DIR/$PROJECT_NAME/PackageVersion.plist"
+	local packageVersionPListPath="$PROJECT_DIR/$TARGET_NAME/PackageVersion.plist"
 	local allPackagesDir="$PROJECT_DIR/Packages"
 	local builtProductsDir="$BUILT_PRODUCTS_DIR"
 	local latestBuildSymlink="$PROJECT_DIR/LatestBuild"
