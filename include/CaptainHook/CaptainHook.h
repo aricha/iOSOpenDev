@@ -56,6 +56,15 @@ typedef struct CHClassDeclaration_ CHClassDeclaration_;
 	@class name; \
 	static CHClassDeclaration_ name ## $;
 
+// An alternative to CHDeclareClass for use across multiple files. Used in header file.
+#define CHDeclareClassExtern(name) \
+	@class name; \
+	extern CHClassDeclaration_ name ## $;
+
+// Used in implementation file, in tandem with CHDeclareClassExtern.
+#define CHDeclareClassInternal(name) \
+	CHClassDeclaration_ name ## $;
+
 // Loading Cached Classes (use CHLoadClass when class is linkable, CHLoadLateClass when it isn't)
 static inline Class CHLoadClass_(CHClassDeclaration_ *declaration, Class value)
 {
