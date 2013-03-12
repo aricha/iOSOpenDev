@@ -1665,9 +1665,22 @@ function xcodeBuildPhase() # no args
 
 			stripBin=`xcodebuild -sdk iphoneos -find strip` || \
 				panic $? "Failed to get strip path"
-
-			[[ "$STRIP_STYLE" != "debugging" ]] || stripOption="-S"
-
+			
+			case "$STRIP_STYLE" in
+			debugging)
+				stripOption="-S"
+			;;
+			non-global)
+				stripOption="-x"
+			;;
+			all)
+				stripOption="-ur"
+			;;
+			*)
+				echo "Unknown strip style $STRIP_STYLE"
+			;;
+			esac
+			
 			echo "Stripping $builtExecutable..."
 
 			"$stripBin" $stripOption "$builtExecutable" || \
