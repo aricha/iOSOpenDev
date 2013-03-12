@@ -1674,7 +1674,7 @@ function xcodeBuildPhase() # no args
 				stripOption="-x"
 			;;
 			all)
-				stripOption="-ur"
+				stripOption="-u -r"
 			;;
 			*)
 				echo "Unknown strip style $STRIP_STYLE"
