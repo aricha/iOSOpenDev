@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# --------------------------------------------------------------
+# -----------------------------------------------------------------------
 # iOSOpenDev -- iOS Open Development (http://www.iOSOpenDev.com)
-# Copyright (C) 2012 Spencer W.S. James <dev@iosopendev.com>
-# --------------------------------------------------------------
+# Copyright (C) 2012-2013 Spencer W.S. James (Kokoabim) <kokoabim@me.com>
+# -----------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-# --------------------------------------------------------------
+# -----------------------------------------------------------------------
 # iOSOpenDev is an independent project and has not been authorized, sponsored, or otherwise approved by Apple Inc.
 # IOS is a registered trademark of Cisco and is used under license by Apple Inc.
 # Xcode is a registered trademark of Apple Inc.
-# --------------------------------------------------------------
+# -----------------------------------------------------------------------
 
 export setCmd="set -eo pipefail"
 $setCmd
@@ -30,7 +30,7 @@ export PATH=/opt/iOSOpenDev/bin:/opt/theos/bin:/usr/local/bin:/usr/bin:/usr/sbin
 # script #
 
 export scriptName="${0##*/}"
-export scriptVer="1.4"
+export scriptVer="1.5"
 export originalArguments=("$@")
 export activeActionArg
 
@@ -39,7 +39,7 @@ export iOSOpenDevPath="/opt/iOSOpenDev"
 export userName="${SUDO_USER-$USER}"
 export userGroup=`id -g $userName`
 export userHome=`eval echo ~$userName`
-export bashProfileFiles=("$userHome/.bash_profile" "$userHome/.bash_login" "$userHome/.profile")
+export bashProfileFiles=("$userHome/.bash_profile" "$userHome/.bashrc" "$userHome/.zshrc" "$userHome/.bash_login" "$userHome/.profile")
 
 export tempDirsFile="`mktemp -d -t $scriptName`/tempdirs"
 touch "$tempDirsFile"
@@ -58,7 +58,8 @@ export ActionNames=( \
 	"SignCode" \
 	"BuildPackage" "InstallPackage" "RemovePackage" "PurgePackage" \
 	"SshToDevice" "RunCmdOnDevice" "RunFuncOnDevice" \
-	"DumpSDKHeaders" "CopyHeadersToSDK" "DumpAndCopyHeaders" "DownloadRBHeaders" "DownloadAndCopyRBHeaders" "RemoveCopiedHeaders" "DumpAllHeaders" \
+	"UpdateIncludeAndLib" \
+	"DumpSDKHeaders" "CopyHeadersToSDK" "DumpAndCopyHeaders" "RemoveCopiedHeaders" "DumpAllHeaders" \
 	"AddSshKeyToDevice" \
 	"XcodeBuildPhase" "XcodeBuildPhaseLogos" "Help")
 export ActionProperty_ShortArg=0
@@ -155,7 +156,7 @@ export Action_DumpAndCopyHeaders=("dump2sdk" "[-i] [-z] [-t header_tag] [-s sdk]
         <framework_type>, tagging each header file with <header_tag>, if
         provided. If <z> is omitted, class-dump-z is used. If <z> is used,
         class-dump is used. If <i> is provided, import statements are not
-        converted from \"header.h\" to <framework_name/header.h>. If <sdk> 
+        converted from \"header.h\" to <framework_name/header.h>.
         is provided, the headers will be generated using, and then copied to,
         that SDK. The default is the latest installed iOS SDK.
         
@@ -165,33 +166,6 @@ export Action_DumpAndCopyHeaders=("dump2sdk" "[-i] [-z] [-t header_tag] [-s sdk]
 
         Framework type options:
             public, private, springboard
-
-        Valid SDK format:
-            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
-
-export Action_DownloadRBHeaders=("rb" "output_directory" "s:" 1 1 getRuntimeBrowserHeaderFiles false \
-"        Download RuntimeBrowser produced header files to <output_directory>.
-        If the version of the latest iOS SDK on this computer is not available
-        for download then this action will fail. If <sdk> is provided, the 
-        headers will be copied to that SDK. The default is the latest 
-        installed iOS SDK.
-
-        Valid SDK format:
-            <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
-            
-export Action_DownloadAndCopyRBHeaders=("rb2sdk" "[-t header_tag] [-s sdk] framework_type" "s:" 1 1 downloadAndCopyRuntimeBrowserHeaderFilesToSDK true \
-"        Download and copy RuntimeBrowser produced header files of the
-        specified iOS SDK <framework_type>, tagging each header file with
-        <header_tag>, if provided. If <framework_type> is public and
-        <header_tag> is empty, a header tag of \"_Dumped\" is used so that
-        original SDK header files are not overwritten. Header files are
-        downloaded to a temporary directory which is removed. If the version of
-        the latest iOS SDK on this computer is not avilable for download then
-        this action will fail. If <sdk> is provided, the headers will be
-        copied to that SDK. The default is the latest installed iOS SDK.
-
-        Framework type options:
-            public, private
 
         Valid SDK format:
             <sdk_name>[<sdk_version>], eg. iphoneos5.1 or iphonesimulator")
@@ -256,6 +230,11 @@ export Action_SshToDevice=("ssh" "[-h host_address]" "h:" 0 0 sshToDevice false 
 "        Secure Shell (SSH) to device at <host_address>. If <host_address> is
         omitted, the environment variable iOSOpenDevDevice is used.")
 
+export Action_UpdateIncludeAndLib=("update" "[-h host_address]" "h:" 0 0 updateIncludeAndLib false \
+"        Update include and lib directories using device at <host_address>.
+        If <host_address> is omitted, the environment variable
+        iOSOpenDevDevice is used.")
+
 export Action_Help=("--help" "" "" 0 0 "" false \
 "        Show this help.")
 
@@ -297,8 +276,10 @@ function determineBashProfileFile()
 	
 	for f in "${bashProfileFiles[@]}"; do
 		if [[ -f "$f" ]]; then
-			filePath="$f"
-			break
+            if [[ -n `perl -ne 'print $1 if /^(?:export)? *'"iOSOpenDevPath"'=(.*)$/' "$f"` ]]; then
+    			filePath="$f"
+    			break
+            fi
 		fi
 	done
 	
@@ -527,16 +508,23 @@ function signCode() # args: executableToSign, identityToSignWith
 	local cmdBin
 	local cmdArg
 	local codesignAllocatePath
+	local entitlements="$CODE_SIGN_ENTITLEMENTS"
 
 	# process arguments #
 	
 	requireFile "$executableToSign" false
-
-	if [[ "$identityToSignWith" == "" ]]; then
+		
+	if [[ "$identityToSignWith" == "" || "$identityToSignWith" == "-" ]]; then
 
 		# use ldid #
+		
 		cmdBin="ldid"
-		cmdArg=("-S")
+		
+		if [[ "$entitlements" == "" ]]; then
+			cmdArg=("-S")
+		else
+			cmdArg=("-S${PROJECT_DIR}/${entitlements}")
+		fi
 
 	else
 
@@ -548,8 +536,12 @@ function signCode() # args: executableToSign, identityToSignWith
 
 		cmdBin=`xcodebuild -sdk iphoneos -find codesign` || \
 			panic $? "Failed to get codesign path"
-		
-		cmdArg=("-fs" "$identityToSignWith")		
+
+		if [[ "$entitlements" == "" ]]; then
+			cmdArg=("-fs" "$identityToSignWith")
+		else
+			cmdArg=("-fs" "$identityToSignWith" "--entitlements" "${PROJECT_DIR}/${entitlements}")
+		fi		
 	fi
 
 	echo -n "Signing $executableToSign with `basename \"$cmdBin\"`... "
@@ -858,78 +850,6 @@ function managePackageOnDevice() # args: manageAction, packageFileOrName, hostAd
 	
 	# success #
 	echo "Done."
-}
-
-# === rb2sdk (action) === #
-
-function downloadAndCopyRuntimeBrowserHeaderFilesToSDK() # args: getWhat [, headerFileTag] [, sdk]
-{
-	local getWhat="$1"
-	local headerFileTag="$2"
-	local sdk="$3"
-	local tmpDir
-	local untardDir
-	
-	[[ $getWhat == "public" || $getWhat == "private" ]] || \
-		panic 1 "Invalid option: $getWhat"
-
-	tmpDir=`getTempDir`
-
-	echo "Downloading RuntimeBrowser produced iOS SDK header files..."
-
-	untardDir=`downloadRuntimeBrowserHeaderFiles "$tmpDir" "$sdk"`
-
-	echo "Copying RuntimeBrowser produced iOS SDK $getWhat framework header files..."
-
-	if [[ $getWhat == "public" ]]; then
-		copyHeadersToSDK "public" "$untardDir/Frameworks" "$headerFileTag" "$sdk"
-	elif [[ $getWhat == "private" ]]; then
-		copyHeadersToSDK "private" "$untardDir/PrivateFrameworks" "$headerFileTag" "$sdk"
-	fi
-}
-
-# === rb (action) === #
-
-function getRuntimeBrowserHeaderFiles() # args: outputDirectory [, sdk]
-{
-	local outputDirectory="$1"
-	local sdk="$2"
-
-	echo "Downloading RuntimeBrowser produced iOS SDK header files..."
-
-	downloadRuntimeBrowserHeaderFiles "$outputDirectory" "$sdk"
-}
-
-function downloadRuntimeBrowserHeaderFiles() # args: outputDirectory [, sdk]
-{
-	$setcmd
-
-	local outputDirectory="$1"
-	local sdk="$2"
-	local sdkVersion
-	local tarName
-	local untardDir
-
-	if [[ -z "$sdk" ]]; then
-		sdk="iphoneos"
-	fi
-	
-	sdkVersion=`getSdkProperty $sdk SDKVersion`
-
-	tarName="RuntimeHeaders-$sdkVersion"
-
-	downloadFile "https://nodeload.github.com/nst/iOS-Runtime-Headers/tarball/$sdkVersion" "$outputDirectory/$tarName.tar.gz"
-	
-	extractTar "$outputDirectory/$tarName.tar.gz" "$outputDirectory"
-
-	untardDir=`tar -tf "$outputDirectory/$tarName.tar.gz" | perl -ne 'print if /^[^\/]+\/$/'` || \
-		panic $? "Failed to get name of directory of tar $outputDirectory/$tarName.tar.gz"
-
-	mv "$outputDirectory/$untardDir" "$outputDirectory/$tarName"
-	rm -f "$outputDirectory/$tarName.tar.gz"
-
-	# return #
-	echo "$outputDirectory/$tarName"
 }
 
 # === rmheaders (action) === #
@@ -1461,6 +1381,53 @@ function sshToDevice() # args: $hostAddress
 		panic $? "Failed to SSH to device $hostAddress"
 }
 
+# === update (Action) === #
+
+function updateIncludeAndLib() # args: $hostAddress
+{
+	local hostAddress="$1"
+	
+	if [[ $hostAddress == "" ]]; then
+	
+		requireExportedVariable "iOSOpenDevDevice"
+		
+		hostAddress="$iOSOpenDevDevice"
+		
+		[[ $hostAddress != "" ]] || \
+			panic 1 "Host address not provided and environment variable iOSOpenDevDevice is not set or is empty"
+	fi
+	
+	# include
+	
+	echo "Updating include files..."
+	
+	copyFromDevice $hostAddress "/usr/include/ActionMenu/ActionMenu.h" "$iOSOpenDevPath/include/ActionMenu"
+	copyFromDevice $hostAddress "/usr/include/SiriObjects.h" "$iOSOpenDevPath/include/AssistantExtensions"
+	downloadFile "https://raw.github.com/rpetrich/CaptainHook/master/CaptainHook.h" "$iOSOpenDevPath/include/CaptainHook/CaptainHook.h"
+	copyFromDevice $hostAddress "/usr/include/libactivator/libactivator.h" "$iOSOpenDevPath/include/libactivator"
+	copyFromDevice $hostAddress "/usr/include/substrate.h" "$iOSOpenDevPath/include"
+	
+	# lib	
+
+	echo "Updating lib files..."
+
+	copyFromDevice $hostAddress "/usr/lib/libactionmenu.dylib" "$iOSOpenDevPath/lib"
+	copyFromDevice $hostAddress "/usr/lib/libactivator.dylib" "$iOSOpenDevPath/lib"
+	copyFromDevice $hostAddress "/usr/lib/libsubstrate.dylib" "$iOSOpenDevPath/lib"
+}
+
+function copyFromDevice() # args: hostAddress, sourceFile, targetDir
+{
+	local hostAddress="$1"
+	local sourceFile="$2"
+	local targetDir="$3"
+	
+	requireDir "$targetDir" true
+
+	scp -q root@$hostAddress:"\"$sourceFile\"" "$targetDir" || \
+		panic $? "Failed to copy file $sourceFile from device $hostAddress to directory $targetDir"
+}
+
 # === func (Action) === #
 
 function runFuncOnDevice() # args: function, hostAddress
@@ -1545,10 +1512,15 @@ function xcodeBuildPhase_Logos() # no args
 	local logosProcessor
 	local projectFileModified=false
 	local projectContainsXmFiles
+	local projectContainsXFiles
 	local lastKnownXmFileTypeNotObjCpp
+	local lastKnownXFileTypeNotObjC
 	local xmFileLangSpecNotObjCpp
+	local xFileLangSpecNotObjC
 	local projectXmFiles
+	local projectXFiles
 	local logosStdErr
+	local logosErr=0
 	
 	# verify use
 	
@@ -1561,6 +1533,7 @@ function xcodeBuildPhase_Logos() # no args
 	# for *.xm project files, set known file-type and language specifications to Objective-C++
 	
 	projectContainsXmFiles=`doesFileContain "$pbxProjectFilePath" '\/\* .+\.xm \*\/ *= *\{.*?isa *= *PBXFileReference\b'`
+	projectContainsXFiles=`doesFileContain "$pbxProjectFilePath" '\/\* .+\.x \*\/ *= *\{.*?isa *= *PBXFileReference\b'`
 	
 	if [[ $projectContainsXmFiles == "true" ]]; then
 	
@@ -1588,9 +1561,35 @@ function xcodeBuildPhase_Logos() # no args
 		fi
 	fi
 	
+	if [[ $projectContainsXFiles == "true" ]]; then
+	
+		lastKnownXFileTypeNotObjCpp=`doesFileContain "$pbxProjectFilePath" '\/\* .+\.x \*\/ *= *\{.*?isa *= *PBXFileReference\b[^\}]*?\blastKnownFileType *= *text\b'`
+	
+		if [[ $lastKnownXFileTypeNotObjC == "true" ]]; then
+			echo "Modifying Xcode project file: setting *.x file-types to Objective-C..."
+			
+			perl -i -pe 's/^(.*\/\* .+\.x \*\/ *= *{.*?isa *= *PBXFileReference\b[^}]*?\blastKnownFileType *= *)[^;]+(.*)$/\1sourcecode.c.objc\2/g' "$pbxProjectFilePath" || \
+				panic $? "Failed to modify Xcode project file"
+	
+			projectFileModified=true
+		fi
+	
+		xFileLangSpecNotObjC=`perl -ne 'if ($_ =~ /\/\* .+\.x \*\/ *= *\{.*?isa *= *PBXFileReference\b/ && $_ !~ /\bxcLanguageSpecificationIdentifier *= *xcode\.lang\.objc\b/) { print "true"; exit; }' "$pbxProjectFilePath"` || \
+			panic $? "Failed to execute perl on $pbxProjectFilePath"
+	
+		if [[ $xFileLangSpecNotObjC == "true" ]]; then
+			echo "Modifying Xcode project file: setting *.x language to Objective-C..."
+			
+			perl -i -pe 'if ($_ =~ /\/\* .+\.x \*\/ *= *\{.*?isa *= *PBXFileReference\b/ && $_ !~ /\bxcLanguageSpecificationIdentifier *= *xcode\.lang\.objc\b/) { s/^(.*\/\* .+\.x \*\/ *= *{.*?isa *= *PBXFileReference\b[^}]*)(.*)$/\1xcLanguageSpecificationIdentifier = xcode.lang.objc; \2/g; }' "$pbxProjectFilePath" || \
+				panic $? "Failed to modify Xcode project file"
+		
+			projectFileModified=true
+		fi
+	fi
+	
 	if [[ $projectFileModified == "true" ]]; then
 		echo "DON'T WORRY, EVERYTHING IS OK!"
-		echo "The Xcode project file was modified to provide better *.xm file support."
+		echo "The Xcode project file was modified to provide better *.xm & *.x file support."
 		echo "To dismiss this build error, just perform the build again."
 		panic 1
 	fi
@@ -1598,18 +1597,34 @@ function xcodeBuildPhase_Logos() # no args
 	# for each *.xm project file, use Logos Processor to generate *.mm file
 	
 	projectXmFiles=($(perl -ne 'if ($_ =~ /\/\* (.+\.xm) \*\/ *= *{.*?isa *= *PBXFileReference\b/) { print "$1\n"; }' "$pbxProjectFilePath"))
+	projectXFiles=($(perl -ne 'if ($_ =~ /\/\* (.+\.x) \*\/ *= *{.*?isa *= *PBXFileReference\b/) { print "$1\n"; }' "$pbxProjectFilePath"))
 	
 	for f in "${projectXmFiles[@]}"; do
 		echo "Logos Processor: $f -> ${f%.*}.mm..."
 
 		logosStdErr=$(("$logosProcessor" "$PROJECT_DIR/$TARGET_NAME/$f" > "$PROJECT_DIR/$TARGET_NAME/${f%.*}.mm") 2>&1) || \
+			logosErr=$?
+		
+		if [[ $logosErr != 0 ]]; then
+			echo "Failed Logos Processor" >&2
+			echo "Logos Processor outputted:" >&2
+			echo "$logosStdErr" >&2
+			exit $logosErr
+		fi
+		
+	done
+	
+	for f in "${projectXFiles[@]}"; do
+		echo "Logos Processor: $f -> ${f%.*}.m..."
+
+		logosStdErr=$(("$logosProcessor" "$PROJECT_DIR/$TARGET_NAME/$f" > "$PROJECT_DIR/$TARGET_NAME/${f%.*}.m") 2>&1) || \
 			panic $? "Failed Logos Processor"
 	
 		[[ $logosStdErr == "" ]] || \
 			panic 1 "Logos Processor outputted: $logosStdErr"
 	done
 
-	echo "Note: If any *.xm file generated above by the Logos Processor (${projectXmFiles[@]}) is not being compiled below, then you must add it to the Xcode project to be compiled."
+	echo "Note: If any *.xm or *.x file generated above by the Logos Processor (${projectXmFiles[@]}) is not being compiled below, then you must add it to the Xcode project to be compiled."
 
 	# success #
 	echo "Xcode Build Phase for Logos Processor complete."
@@ -1914,6 +1929,9 @@ case "${activeActionArg[$ActionProperty_ShortArg]}" in
 		"${activeActionArg[$ActionProperty_Function]}"
 	;;
 	${Action_SshToDevice[$ActionProperty_ShortArg]})
+		"${activeActionArg[$ActionProperty_Function]}" "$Opt_h"
+	;;
+	${Action_UpdateIncludeAndLib[$ActionProperty_ShortArg]})
 		"${activeActionArg[$ActionProperty_Function]}" "$Opt_h"
 	;;
 	${Action_XcodeBuildPhaseLogos[$ActionProperty_ShortArg]})
